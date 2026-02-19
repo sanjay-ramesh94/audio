@@ -6,7 +6,6 @@ import { Dashboard } from './components/Dashboard';
 import { UploadZone } from './components/UploadZone';
 import { TranscriptView } from './components/TranscriptView';
 import { Bell, Search, User } from 'lucide-react';
-import { cn } from './lib/utils';
 
 interface TranscriptSegment {
   speaker: string;
@@ -19,10 +18,34 @@ interface SpeakerMap {
   [key: string]: string;
 }
 
+interface Conflict {
+  point: string;
+  resolution: string;
+}
+
+interface CalendarEvent {
+  title: string;
+  date: string;
+  time: string;
+}
+
+interface MindMapNode {
+  topic: string;
+  subtopics: string[];
+}
+
+interface MeetingInsights {
+  summary: string;
+  conflicts: Conflict[];
+  calendar_events: CalendarEvent[];
+  mind_map: MindMapNode[];
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [file, setFile] = useState<File | null>(null);
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
+  const [insights, setInsights] = useState<MeetingInsights | null>(null);
   const [loading, setLoading] = useState(false);
   const [speakerMap, setSpeakerMap] = useState<SpeakerMap>({});
 
@@ -35,9 +58,12 @@ function App() {
 
     try {
       const response = await axios.post('http://localhost:8000/upload', formData);
-      setTranscript(response.data);
+      const { transcript: transcriptData, insights: insightsData } = response.data;
 
-      const speakers = Array.from(new Set(response.data.map((s: TranscriptSegment) => s.speaker)));
+      setTranscript(transcriptData);
+      setInsights(insightsData);
+
+      const speakers = Array.from(new Set(transcriptData.map((s: TranscriptSegment) => s.speaker)));
       const initialMap: SpeakerMap = {};
       speakers.forEach((s: any) => {
         initialMap[s] = s;
@@ -66,15 +92,16 @@ function App() {
           />
         );
       case 'transcript':
-        return transcript.length > 0 ? (
+        return (transcript.length > 0 && insights) ? (
           <TranscriptView
             transcript={transcript}
+            insights={insights}
             speakerMap={speakerMap}
             onBack={() => setActiveTab('upload')}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-slate-500 italic">
-            No transcript active. Go to Upload to start.
+            {loading ? "Processing Intelligence..." : "No transcript active. Go to Upload to start."}
           </div>
         );
       default:
