@@ -64,12 +64,19 @@ async def upload_audio(file: UploadFile = File(...)):
         lemur_output = {}
         try:
             prompt = """
-            Analyze the transcript and identifying the following:
-            1. Conflicts: Disagreements between speakers. Provide the exact text segment showing the conflict.
-            2. Resolutions: Agreements or consensus reached after a conflict. Provide the exact text segment.
-            3. Calendar Events: Specific meeting requests with date, time, and subject.
+            Analyze the transcript to identify the following:
+
+            1. Conflicts: Disagreements or differing opinions between speakers. Provide the exact text segment showing the conflict.
+            2. Resolutions: Agreements or consensus reached after a conflict/discussion. Provide the exact text segment.
+            3. Calendar Events: Identify any meeting times that were **AGREED UPON** by all parties. 
+               - If multiple times are proposed, only capture the FINAL agreed time.
+               - Infer context: "9 o'clock" usually means 9:00 (AM/PM based on context, default to AM business hours if unsure). 
+               - Format dates as YYYY-MM-DD (assume next occurrence if not specified) and times as HH:MM (24-hour).
             
-            Return the result as a JSON object with keys: "conflicts" (list of objects with 'text', 'speaker'), "resolutions" (list of objects with 'text', 'speaker'), "events" (list of objects with 'subject', 'date', 'time').
+            Return the result as a raw JSON object (no markdown formatting) with keys: 
+            - "conflicts" (list of objects with 'text', 'speaker')
+            - "resolutions" (list of objects with 'text', 'speaker')
+            - "events" (list of objects with 'subject', 'date', 'time')
             """
             
             result = transcript.lemur.task(
