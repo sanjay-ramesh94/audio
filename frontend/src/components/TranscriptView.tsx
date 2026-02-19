@@ -25,6 +25,23 @@ export function TranscriptView({ transcript, onBack, speakerMap }: TranscriptVie
     const totalSpeakers = new Set(transcript.map(t => t.speaker)).size;
     const lastTimestamp = transcript[transcript.length - 1]?.end || 0;
 
+    const handleExport = () => {
+        const textContent = transcript.map(segment => {
+            const speakerName = speakerMap[segment.speaker] || segment.speaker;
+            return `[${formatTime(segment.start)}] ${speakerName}: ${segment.text}`;
+        }).join('\n\n');
+
+        const blob = new Blob([textContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `transcript-${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="h-full flex flex-col space-y-6 max-w-5xl mx-auto w-full">
             <div className="flex items-center justify-between">
@@ -51,7 +68,10 @@ export function TranscriptView({ transcript, onBack, speakerMap }: TranscriptVie
                 </div>
 
                 <div className="flex items-center space-x-3">
-                    <button className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-all font-medium border border-slate-700">
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-all font-medium border border-slate-700"
+                    >
                         <Download className="w-4 h-4" />
                         <span>Export</span>
                     </button>

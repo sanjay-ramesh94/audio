@@ -93,6 +93,7 @@ function App() {
 
         <header className="h-20 border-b border-slate-800/50 flex items-center justify-between px-10 relative z-10 backdrop-blur-sm bg-slate-900/10">
           <div className="flex items-center space-x-6 w-1/3">
+            <h1 className="text-xl font-display font-bold text-white tracking-tight mr-4">Antigravity</h1>
             <div className="relative group w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
               <input
