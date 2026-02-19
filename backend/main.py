@@ -30,34 +30,11 @@ class TranscriptSegment(BaseModel):
     start: float
     end: float
 
-class Conflict(BaseModel):
-    point: str
-    resolution: str
-
-class CalendarEvent(BaseModel):
-    title: str
-    date: str
-    time: str
-
-class MindMapNode(BaseModel):
-    topic: str
-    subtopics: List[str]
-
-class MeetingInsights(BaseModel):
-    summary: str
-    conflicts: List[Conflict]
-    calendar_events: List[CalendarEvent]
-    mind_map: List[MindMapNode]
-
-class TranscriptionResponse(BaseModel):
-    transcript: List[TranscriptSegment]
-    insights: MeetingInsights
-
 @app.get("/")
 async def root():
     return {"message": "AI Meeting Transcriber API is running"}
 
-@app.post("/upload", response_model=TranscriptionResponse)
+@app.post("/upload")
 async def upload_audio(file: UploadFile = File(...)):
     if not aai.settings.api_key:
         raise HTTPException(status_code=500, detail="AssemblyAI API Key not configured")
@@ -83,7 +60,31 @@ async def upload_audio(file: UploadFile = File(...)):
         if transcript.status == aai.TranscriptStatus.error:
             raise HTTPException(status_code=500, detail=f"Transcription failed: {transcript.error}")
 
-        # Format the transcript response
+        # Run LeMUR analysis
+        lemur_output = {}
+        try:
+            prompt = """
+            Analyze the transcript and identifying the following:
+            1. Conflicts: Disagreements between speakers. Provide the exact text segment showing the conflict.
+            2. Resolutions: Agreements or consensus reached after a conflict. Provide the exact text segment.
+            3. Calendar Events: Specific meeting requests with date, time, and subject.
+            
+            Return the result as a JSON object with keys: "conflicts" (list of objects with 'text', 'speaker'), "resolutions" (list of objects with 'text', 'speaker'), "events" (list of objects with 'subject', 'date', 'time').
+            """
+            
+            result = transcript.lemur.task(
+                prompt, 
+                final_model=aai.LemurModel.claude3_5_sonnet
+            )
+            
+            # Simple parsing attempt (LeMUR returns text, we need to ensure it's JSON)
+            # In a production app, we would use structured output or more robust parsing
+            lemur_output = result.response
+        except Exception as e:
+            print(f"LeMUR analysis failed: {e}")
+            lemur_output = "Analysis unavailable"
+
+        # Format the response
         formatted_transcript = []
         if transcript.utterances:
             for utterance in transcript.utterances:
@@ -105,47 +106,14 @@ async def upload_audio(file: UploadFile = File(...)):
                 )
             )
 
-        # Generate Insights using LeMUr
-        prompt = """
-        Analyze this transcript and provide a JSON response with:
-        1. 'summary': A 2-sentence executive summary.
-        2. 'conflicts': A list of objects {point, resolution} identifying disagreements and their outcomes.
-        3. 'calendar_events': A list of {title, date, time} for any future meetings or deadlines mentioned.
-        4. 'mind_map': A list of {topic, subtopics[]} representing the core themes discussed.
-        
-        Ensure the output is ONLY valid JSON.
-        """
-        
-        result = transcript.lemur.task(
-            prompt,
-            final_model=aai.LemurModel.default
-        )
-        
-        # Simple cleanup of LLM response to get JSON
-        import json
-        import re
-        
-        json_match = re.search(r'\{.*\}', result.response, re.DOTALL)
-        if json_match:
-            insights_data = json.loads(json_match.group())
-        else:
-            # Fallback empty insights if LLM fails format
-            insights_data = {
-                "summary": "Transcription complete.",
-                "conflicts": [],
-                "calendar_events": [],
-                "mind_map": []
-            }
-
-        return TranscriptionResponse(
-            transcript=formatted_transcript,
-            insights=MeetingInsights(**insights_data)
-        )
+        return {
+            "transcript": formatted_transcript,
+            "analysis": lemur_output
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Clean up the temporary file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
