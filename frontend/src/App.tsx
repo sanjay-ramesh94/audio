@@ -1,6 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
-import { Upload, User, Edit2, Play, Check, X, MessageSquare, AudioLines, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sidebar } from './components/Sidebar';
+import { Dashboard } from './components/Dashboard';
+import { UploadZone } from './components/UploadZone';
+import { TranscriptView } from './components/TranscriptView';
+import { Bell, Search, User } from 'lucide-react';
+import { cn } from './lib/utils';
 
 interface TranscriptSegment {
   speaker: string;
@@ -14,19 +20,11 @@ interface SpeakerMap {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [file, setFile] = useState<File | null>(null);
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [loading, setLoading] = useState(false);
   const [speakerMap, setSpeakerMap] = useState<SpeakerMap>({});
-  const [editingSpeaker, setEditingSpeaker] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
 
   const uploadFile = async () => {
     if (!file) return;
@@ -39,13 +37,13 @@ function App() {
       const response = await axios.post('http://localhost:8000/upload', formData);
       setTranscript(response.data);
 
-      // Initialize speaker map
       const speakers = Array.from(new Set(response.data.map((s: TranscriptSegment) => s.speaker)));
       const initialMap: SpeakerMap = {};
       speakers.forEach((s: any) => {
         initialMap[s] = s;
       });
       setSpeakerMap(initialMap);
+      setActiveTab('transcript');
     } catch (error) {
       console.error("Error uploading file:", error);
       alert("Failed to process audio. Please check if the backend is running and your API key is set.");
@@ -54,189 +52,92 @@ function App() {
     }
   };
 
-  const startRename = (speaker: string) => {
-    setEditingSpeaker(speaker);
-    setNewName(speakerMap[speaker]);
-  };
-
-  const saveRename = () => {
-    if (editingSpeaker) {
-      setSpeakerMap({
-        ...speakerMap,
-        [editingSpeaker]: newName
-      });
-      setEditingSpeaker(null);
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'upload':
+        return (
+          <UploadZone
+            file={file}
+            setFile={setFile}
+            loading={loading}
+            onUpload={uploadFile}
+          />
+        );
+      case 'transcript':
+        return transcript.length > 0 ? (
+          <TranscriptView
+            transcript={transcript}
+            speakerMap={speakerMap}
+            onBack={() => setActiveTab('upload')}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-slate-500 italic">
+            No transcript active. Go to Upload to start.
+          </div>
+        );
+      default:
+        return <Dashboard />;
     }
   };
 
-  const cancelRename = () => {
-    setEditingSpeaker(null);
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-slate-200 p-8 flex flex-col items-center">
-      <header className="max-w-4xl w-full mb-12 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-900/20">
-            <AudioLines className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
-              Antigravity Transcribe
-            </h1>
-            <p className="text-slate-500 text-sm">AI-Powered Meeting Intelligence</p>
-          </div>
-        </div>
-      </header>
+    <div className="h-screen w-full bg-[#0a0c10] text-slate-200 flex overflow-hidden font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="max-w-4xl w-full flex flex-col gap-8">
-        {/* Upload Section */}
-        {!transcript.length && (
-          <div
-            className={`border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center transition-all ${file ? 'border-blue-500 bg-blue-500/5' : 'border-slate-800 hover:border-slate-700 bg-slate-900/50'
-              }`}
-          >
-            <input
-              type="file"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="audio/*"
-            />
+      <main className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Decorative Grid Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
 
-            <div className="mb-6 p-4 bg-slate-800 rounded-full">
-              <Upload className="w-10 h-10 text-blue-400" />
-            </div>
-
-            <h2 className="text-xl font-semibold mb-2">
-              {file ? file.name : "Upload your meeting audio"}
-            </h2>
-            <p className="text-slate-500 mb-8 text-center max-w-sm">
-              Support MP3, WAV, M4A. We'll automatically detect speakers and transcribe the content.
-            </p>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-medium transition-colors"
-              >
-                Choose File
-              </button>
-
-              {file && (
-                <button
-                  onClick={uploadFile}
-                  disabled={loading}
-                  className="px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 rounded-xl font-bold text-white flex items-center gap-2 transition-all shadow-lg shadow-blue-900/30"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-5 h-5 fill-current" />
-                      Start Transcribing
-                    </>
-                  )}
-                </button>
-              )}
+        <header className="h-20 border-b border-slate-800/50 flex items-center justify-between px-10 relative z-10 backdrop-blur-sm bg-slate-900/10">
+          <div className="flex items-center space-x-6 w-1/3">
+            <div className="relative group w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+              <input
+                type="text"
+                placeholder="Search transcripts..."
+                className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-600"
+              />
             </div>
           </div>
-        )}
 
-        {/* Transcript Section */}
-        {transcript.length > 0 && (
-          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                <MessageSquare className="text-blue-400 w-5 h-5" />
-                Transcript
-              </h3>
-              <button
-                onClick={() => { setTranscript([]); setFile(null); }}
-                className="text-sm text-slate-500 hover:text-slate-200 transition-colors"
-              >
-                Upload new file
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {transcript.map((segment, index) => {
-                const isEven = segment.speaker.includes('B') || index % 2 !== 0; // Rough heuristic for visual split
-                const displayName = speakerMap[segment.speaker] || segment.speaker;
-
-                return (
-                  <div
-                    key={index}
-                    className={`flex flex-col ${isEven ? 'items-end' : 'items-start'} group`}
-                  >
-                    <div className={`flex items-center gap-2 mb-2 ${isEven ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isEven ? 'bg-indigo-600' : 'bg-blue-600'
-                        }`}>
-                        <User className="w-4 h-4 text-white" />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {editingSpeaker === segment.speaker ? (
-                          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
-                            <input
-                              type="text"
-                              value={newName}
-                              onChange={(e) => setNewName(e.target.value)}
-                              className="bg-transparent border-none focus:ring-0 text-sm px-2 w-32"
-                              autoFocus
-                            />
-                            <button onClick={saveRename} className="p-1 hover:text-green-400 transition-colors">
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button onClick={cancelRename} className="p-1 hover:text-red-400 transition-colors">
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 group/name">
-                            <span className="text-sm font-bold text-white tracking-wide uppercase">
-                              {displayName}
-                            </span>
-                            <button
-                              onClick={() => startRename(segment.speaker)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-blue-400"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                        <span className="text-xs text-slate-600 font-mono">
-                          {formatTime(segment.start)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className={`max-w-[80%] p-4 rounded-3xl text-[15px] leading-relaxed shadow-sm ${isEven
-                      ? 'bg-slate-900 border border-slate-800 rounded-tr-none text-right'
-                      : 'bg-blue-600 text-white rounded-tl-none'
-                      }`}>
-                      {segment.text}
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="flex items-center space-x-4">
+            <button className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all relative group">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full group-hover:animate-ping" />
+            </button>
+            <div className="h-10 w-px bg-slate-800 mx-2" />
+            <div className="flex items-center space-x-3 pl-2">
+              <div className="text-right">
+                <p className="text-sm font-bold text-white tracking-tight">Sanjay Ramesh</p>
+                <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Pro Member</p>
+              </div>
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-0.5 shadow-lg shadow-indigo-500/20">
+                <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center overflow-hidden">
+                  <User className="text-slate-400 w-6 h-6" />
+                </div>
+              </div>
             </div>
           </div>
-        )}
+        </header>
+
+        <section className="flex-1 p-10 relative z-10 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 1.02, y: -10 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className="h-full"
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
+        </section>
       </main>
-
-      <footer className="mt-auto pt-12 pb-6 text-slate-600 text-xs">
-        <p>© 2026 Antigravity. Built with FastAPI, React & AssemblyAI.</p>
-      </footer>
     </div>
   );
 }
