@@ -193,6 +193,11 @@ END:VCALENDAR`;
                         <span>AI Insights</span>
                     </h3>
 
+                    {/* DEBUG DUMP */}
+                    <pre className="text-[10px] text-slate-500 overflow-x-auto whitespace-pre-wrap">
+                        DEBUG: {JSON.stringify(analysis, null, 2)}
+                    </pre>
+
                     {/* Detected Events */}
                     {analysis.events && analysis.events.length > 0 && (
                         <div className="space-y-4">
