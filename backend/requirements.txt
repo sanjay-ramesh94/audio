@@ -4,3 +4,4 @@ python-multipart
 assemblyai
 python-dotenv
 pydantic
+playwright

@@ -4,6 +4,8 @@ from typing import List
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from bot_service import MeetingBot
+import asyncio
 import assemblyai as aai
 from dotenv import load_dotenv
 
@@ -21,8 +23,10 @@ app.add_middleware(
 )
 
 # Set AssemblyAI API Key
-# The user should set ASSEMBLYAI_API_KEY in their .env file
 aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
+
+class JoinRequest(BaseModel):
+    meet_url: str
 
 class ContextItem(BaseModel):
     title: str
@@ -141,6 +145,17 @@ async def upload_audio(file: UploadFile = File(...)):
         # Clean up the temporary file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+
+@app.post("/join")
+async def join_meeting(request: JoinRequest):
+    if not request.meet_url.startswith("https://meet.google.com/"):
+        raise HTTPException(status_code=400, detail="Invalid Google Meet URL")
+    
+    bot = MeetingBot(request.meet_url)
+    # Run bot in background
+    asyncio.create_task(bot.start())
+    
+    return {"message": "Bot is joining the meeting", "url": request.meet_url}
 
 if __name__ == "__main__":
     import uvicorn

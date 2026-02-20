@@ -16,6 +16,57 @@ export function Dashboard() {
                 <p className="text-slate-400 mt-1">Track your meeting productivity and insights.</p>
             </div>
 
+            <div className="p-6 bg-indigo-600/10 border border-indigo-500/30 rounded-3xl flex items-center justify-between space-x-6 backdrop-blur-sm relative overflow-hidden group">
+                <div className="absolute inset-0 bg-indigo-600/5 group-hover:bg-indigo-600/10 transition-colors duration-500" />
+                <div className="relative z-10 flex-1 space-y-1">
+                    <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                        <span>Join Live Meeting</span>
+                    </h3>
+                    <p className="text-sm text-indigo-300">Paste a Google Meet URL to let the AI join and transcribe in real-time.</p>
+                </div>
+                <div className="relative z-10 flex items-center space-x-2 bg-slate-900/50 p-1.5 rounded-xl border border-indigo-500/30 ring-4 ring-indigo-500/10">
+                    <div className="flex bg-slate-800/50 rounded-lg items-center px-3 border border-slate-700/50 focus-within:border-indigo-500/50 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                        <Zap className="w-4 h-4 text-indigo-400 mr-2" />
+                        <input
+                            type="text"
+                            placeholder="https://meet.google.com/..."
+                            className="bg-transparent border-none outline-none text-white text-sm py-2 w-64 placeholder:text-slate-500 font-medium"
+                            id="meet-url-input"
+                        />
+                    </div>
+                    <button
+                        onClick={async () => {
+                            const input = document.getElementById('meet-url-input') as HTMLInputElement;
+                            const btn = document.getElementById('join-btn');
+                            const url = input.value;
+
+                            if (!url) return;
+                            if (btn) btn.innerText = 'Joining...';
+
+                            try {
+                                await fetch('http://localhost:8000/join', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ meet_url: url })
+                                });
+
+                                input.value = '';
+                                if (btn) btn.innerText = 'Bot Sent!';
+                                setTimeout(() => { if (btn) btn.innerText = 'Join'; }, 3000);
+                            } catch (e) {
+                                console.error(e);
+                                if (btn) btn.innerText = 'Error';
+                            }
+                        }}
+                        id="join-btn"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+                    >
+                        Join
+                    </button>
+                </div>
+            </div>
+
             <div className="grid grid-cols-4 gap-6">
                 {stats.map((stat, i) => (
                     <motion.div
