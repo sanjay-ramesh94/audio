@@ -26,8 +26,6 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [speakerMap, setSpeakerMap] = useState<SpeakerMap>({});
 
-    const [analysis, setAnalysis] = useState<any>(null);
-
     const uploadFile = async () => {
         if (!file) return;
 
@@ -37,15 +35,9 @@ function App() {
 
         try {
             const response = await axios.post('http://localhost:8000/upload', formData);
+            setTranscript(response.data);
 
-            // Check if response has new structure
-            const transcriptData = response.data.transcript || response.data;
-            const analysisData = response.data.analysis || null;
-
-            setTranscript(transcriptData);
-            setAnalysis(analysisData);
-
-            const speakers = Array.from(new Set(transcriptData.map((s: TranscriptSegment) => s.speaker)));
+            const speakers = Array.from(new Set(response.data.map((s: TranscriptSegment) => s.speaker)));
             const initialMap: SpeakerMap = {};
             speakers.forEach((s: any) => {
                 initialMap[s] = s;
@@ -78,7 +70,6 @@ function App() {
                     <TranscriptView
                         transcript={transcript}
                         speakerMap={speakerMap}
-                        analysis={analysis}
                         onBack={() => setActiveTab('upload')}
                     />
                 ) : (
